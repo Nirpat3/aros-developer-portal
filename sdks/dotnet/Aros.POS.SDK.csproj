@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Aros.POS.SDK</RootNamespace>
+    <AssemblyName>Aros.POS.SDK</AssemblyName>
+    <Version>1.0.0</Version>
+    <Authors>Nirlab Inc</Authors>
+    <Company>Nirlab Inc</Company>
+    <Product>AROS POS SDK</Product>
+    <Description>C# SDK for AROS POS intelligence — offline-capable event ingestion and real-time recommendations for Windows POS systems.</Description>
+    <PackageId>Aros.POS.SDK</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>pos;retail;aros;sdk;c-store</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>

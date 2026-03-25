@@ -1,0 +1,25 @@
+{
+  "name": "@aros/pos-sdk",
+  "version": "1.0.0",
+  "description": "AROS POS Integration SDK — connect any POS system to the Shre AI platform for real-time intelligence, recommendations, and loss prevention.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["pos", "retail", "aros", "shre", "connexus", "verifone", "ncr", "gilbarco"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

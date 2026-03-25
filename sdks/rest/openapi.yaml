@@ -1,0 +1,512 @@
+openapi: 3.1.0
+info:
+  title: AROS POS Integration API
+  description: |
+    Connect any POS system to the AROS AI platform for real-time intelligence,
+    upsell recommendations, loss prevention, and cashier messaging.
+
+    This is the Connexus-standard API that all AROS POS SDKs wrap.
+  version: "1.0.0"
+  contact:
+    name: AROS Developer Support
+    url: https://developers.aros.ai
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:5497
+    description: Local development
+  - url: https://api.aros.ai
+    description: Production
+
+paths:
+  /v1/connexus/register:
+    post:
+      summary: Register a POS device
+      description: Call once on device startup to register with the AROS platform.
+      tags: [Device Management]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, tenantId, vendor]
+              properties:
+                deviceId:
+                  type: string
+                  description: Unique device/register identifier
+                  example: REG-001
+                tenantId:
+                  type: string
+                  description: Store/tenant identifier
+                  example: store-42
+                vendor:
+                  type: string
+                  description: POS vendor type
+                  enum: [mobilepos, verifone-commander, verifone-ruby, ncr-aloha, ncr-counterpoint, ncr-voyix, gilbarco-passport, gilbarco-flexpay, wayne-fusion, oracle-simphony, clover, square, toast, lightspeed, shopify-pos, generic]
+                  example: verifone-commander
+                model:
+                  type: string
+                  example: Commander 2.0
+                firmware:
+                  type: string
+                  example: "4.1.2"
+                protocolVersion:
+                  type: string
+                  default: "1.0"
+                capabilities:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Device registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  deviceId: { type: string }
+                  vendor: { type: string }
+                  message: { type: string }
+        "400":
+          description: Invalid request
+
+  /v1/connexus/ingest:
+    post:
+      summary: Ingest POS events
+      description: |
+        Send POS events to the AROS platform. Supports single events or batches up to 100.
+        Events are normalized from vendor-specific formats to internal schema automatically.
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/ConnexusEvent"
+                - type: object
+                  properties:
+                    events:
+                      type: array
+                      maxItems: 100
+                      items:
+                        $ref: "#/components/schemas/ConnexusEvent"
+            examples:
+              itemSale:
+                summary: Item scanned
+                value:
+                  vendor: verifone-commander
+                  eventType: ItemSale
+                  deviceId: REG-001
+                  tenantId: store-42
+                  data:
+                    barcode: "012345678901"
+                    description: Fireball 750ml
+                    price: 14.99
+                    quantity: 1
+                    department: Liquor
+              transactionComplete:
+                summary: Sale completed
+                value:
+                  vendor: ncr-counterpoint
+                  eventType: TransactionComplete
+                  deviceId: NCR-LANE-1
+                  tenantId: store-42
+                  data:
+                    transactionId: INV-2024-1234
+                    total: 42.50
+                    tax: 3.25
+                    paymentType: credit
+                    itemCount: 3
+              voidLine:
+                summary: Line item voided
+                value:
+                  vendor: gilbarco-passport
+                  eventType: VoidLine
+                  deviceId: GBR-01
+                  tenantId: store-42
+                  data:
+                    itemId: SKU-001
+                    reason: customer_changed_mind
+                    amount: 14.99
+                    lineItem: true
+      responses:
+        "200":
+          description: Events accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  accepted: { type: integer }
+                  failed: { type: integer }
+                  total: { type: integer }
+
+  /v1/connexus/ingest/learn:
+    post:
+      summary: Learn basket associations
+      description: |
+        Send completed basket items to teach co-purchase patterns.
+        AROS uses these to generate upsell/cross-sell recommendations.
+        Call after every transaction with the full item list.
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    properties:
+                      itemId: { type: string }
+                      description: { type: string }
+                      department: { type: string }
+                      price: { type: number }
+                customerId: { type: string }
+                tenantId: { type: string }
+      responses:
+        "200":
+          description: Associations learned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  associationsCreated: { type: integer }
+                  itemCount: { type: integer }
+
+  /v1/connexus/devices:
+    get:
+      summary: List registered POS devices
+      tags: [Device Management]
+      parameters:
+        - name: tenantId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Device list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Device"
+                  count: { type: integer }
+
+  /v1/connexus/health:
+    get:
+      summary: Connexus adapter health
+      tags: [Device Management]
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  totalDevices: { type: integer }
+                  activeDevices: { type: integer }
+                  supportedVendors: { type: array, items: { type: string } }
+                  protocolVersion: { type: string }
+
+  /v1/pos/recommend:
+    post:
+      summary: Get upsell/cross-sell recommendations
+      description: |
+        Returns items frequently purchased together with the given item.
+        Uses learned co-purchase patterns from basket data.
+      tags: [Intelligence]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [itemId]
+              properties:
+                itemId: { type: string, description: Item identifier }
+                department: { type: string }
+                tenantId: { type: string }
+                limit: { type: integer, default: 5, maximum: 20 }
+      responses:
+        "200":
+          description: Recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itemId: { type: string }
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Recommendation"
+                  count: { type: integer }
+
+  /v1/pos/quick-order:
+    post:
+      summary: Customer frequent items for quick ring-up
+      description: Returns the customer's most purchased items, ordered by frequency.
+      tags: [Intelligence]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerId]
+              properties:
+                customerId: { type: string }
+                tenantId: { type: string }
+                limit: { type: integer, default: 10, maximum: 30 }
+      responses:
+        "200":
+          description: Customer's frequent items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QuickOrderItem"
+                  count: { type: integer }
+
+  /v1/pos/messages/{deviceId}:
+    get:
+      summary: Get cashier messages
+      description: Retrieve pending messages, alerts, and todo items for a POS device.
+      tags: [Messaging]
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenantId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cashier messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deviceId: { type: string }
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CashierMessage"
+                  count: { type: integer }
+
+  /v1/pos/messages:
+    post:
+      summary: Push message to cashier device
+      description: Send a todo item, alert, or notification to a specific POS device.
+      tags: [Messaging]
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, title]
+              properties:
+                deviceId: { type: string }
+                tenantId: { type: string }
+                type: { type: string, enum: [info, warning, alert, todo], default: info }
+                title: { type: string }
+                body: { type: string }
+                priority: { type: integer, default: 0 }
+                source: { type: string }
+                expiresInMinutes: { type: integer }
+      responses:
+        "200":
+          description: Message created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  id: { type: string }
+
+  /v1/pos/messages/{messageId}/ack:
+    post:
+      summary: Acknowledge a cashier message
+      tags: [Messaging]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deviceId: { type: string }
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+
+  /v1/pos/analytics:
+    get:
+      summary: Real-time POS analytics
+      description: Get aggregated POS metrics for a time window.
+      tags: [Intelligence]
+      parameters:
+        - name: tenantId
+          in: query
+          schema: { type: string }
+        - name: minutes
+          in: query
+          schema: { type: integer, default: 60, maximum: 1440 }
+      responses:
+        "200":
+          description: Analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PosAnalytics"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+    AdminToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+
+  schemas:
+    ConnexusEvent:
+      type: object
+      required: [vendor, eventType]
+      properties:
+        vendor:
+          type: string
+          description: POS vendor identifier
+        eventType:
+          type: string
+          description: Event type
+          enum: [ItemSale, TransactionComplete, VoidLine, VoidTransaction, Return, Refund, Discount, PriceOverride, NoSale, LoyaltySwipe, FuelDispense, FuelPrepay]
+        data:
+          type: object
+          additionalProperties: true
+        deviceId:
+          type: string
+        tenantId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    Device:
+      type: object
+      properties:
+        device_id: { type: string }
+        tenant_id: { type: string }
+        vendor: { type: string }
+        model: { type: string }
+        firmware: { type: string }
+        protocol_version: { type: string }
+        last_seen: { type: string }
+        registered_at: { type: string }
+
+    Recommendation:
+      type: object
+      properties:
+        target_item: { type: string }
+        target_description: { type: string }
+        target_department: { type: string }
+        target_price: { type: number }
+        co_purchase_count: { type: integer }
+        confidence: { type: number }
+        source: { type: string }
+
+    QuickOrderItem:
+      type: object
+      properties:
+        item_id: { type: string }
+        description: { type: string }
+        department: { type: string }
+        price: { type: number }
+        purchase_count: { type: integer }
+        last_purchased: { type: string }
+
+    CashierMessage:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        title: { type: string }
+        body: { type: string }
+        priority: { type: integer }
+        source: { type: string }
+        created_at: { type: string }
+        expires_at: { type: string }
+
+    PosAnalytics:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            minutes: { type: integer }
+            since: { type: string }
+        scans: { type: integer }
+        transactions: { type: integer }
+        totalRevenue: { type: number }
+        avgTicket: { type: number }
+        events:
+          type: object
+          additionalProperties: { type: integer }
+        alerts:
+          type: object
+          properties:
+            voids: { type: integer }
+            refunds: { type: integer }
+            noSales: { type: integer }
+            priceOverrides: { type: integer }
+
+tags:
+  - name: Device Management
+    description: Register and manage POS devices
+  - name: Events
+    description: Send POS events to the AROS platform
+  - name: Intelligence
+    description: AI-powered recommendations and analytics
+  - name: Messaging
+    description: Cashier messages, alerts, and todo items
