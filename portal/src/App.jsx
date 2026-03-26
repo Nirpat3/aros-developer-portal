@@ -261,17 +261,22 @@ curl http://your-server:5497/v1/pos/messages/REG-001?tenantId=store-42`,
 };
 
 function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
   return (
     <header className="header">
       <div className="container">
         <div className="logo">AROS <span>Developer Portal</span></div>
-        <nav>
-          <a href="#sdks">SDKs</a>
-          <a href="#quickstart">Quick Start</a>
-          <a href="#events">Events</a>
-          <a href="#intelligence">Intelligence</a>
-          <a href="#vendors">POS Systems</a>
-          <a href="#architecture">Architecture</a>
+        <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          <span /><span /><span />
+        </button>
+        <nav className={menuOpen ? 'open' : ''}>
+          <a href="#sdks" onClick={closeMenu}>SDKs</a>
+          <a href="#quickstart" onClick={closeMenu}>Quick Start</a>
+          <a href="#events" onClick={closeMenu}>Events</a>
+          <a href="#intelligence" onClick={closeMenu}>Intelligence</a>
+          <a href="#vendors" onClick={closeMenu}>POS Systems</a>
+          <a href="#architecture" onClick={closeMenu}>Architecture</a>
           <a href="https://github.com/Nirpat3/aros-developer-portal" target="_blank" rel="noopener">GitHub</a>
         </nav>
       </div>
