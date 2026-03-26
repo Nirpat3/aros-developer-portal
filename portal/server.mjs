@@ -55,13 +55,47 @@ if (existsSync(DIST_DIR)) {
 
   // SPA fallback — serve index.html for all non-file routes
   app.get('*', (_req, res) => {
-    res.sendFile(join(DIST_DIR, 'index.html'));
+    res.sendFile(join(DIST_DIR, 'index.html'), (err) => {
+      if (err && !res.headersSent) {
+        res.status(500).send('Internal Server Error');
+      }
+    });
   });
 } else {
   app.get('*', (_req, res) => {
     res.status(503).send('Build not found. Run: npm run build');
   });
 }
+
+// ── Error handling ──────────────────────────────────────────
+app.use((err, _req, res, _next) => {
+  console.error(`[aros-developer-portal] Express error: ${err.message}`);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+process.on('uncaughtException', (err) => {
+  console.error(`[aros-developer-portal] Uncaught exception: ${err.message}`);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[aros-developer-portal] Port ${PORT} already in use — exiting`);
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error(`[aros-developer-portal] Unhandled rejection:`, reason);
+});
+
+process.on('SIGTERM', () => {
+  console.log('[aros-developer-portal] SIGTERM received — shutting down');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[aros-developer-portal] SIGINT received — shutting down');
+  process.exit(0);
+});
 
 // ── Start ───────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
