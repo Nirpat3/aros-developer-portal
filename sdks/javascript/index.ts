@@ -31,15 +31,22 @@
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type PosVendor =
-  | "mobilepos"
-  | "verifone-commander" | "verifone-ruby"
-  | "ncr-aloha" | "ncr-counterpoint" | "ncr-voyix"
-  | "gilbarco-passport" | "gilbarco-flexpay"
-  | "wayne-fusion"
-  | "oracle-simphony"
-  | "clover" | "square" | "toast"
-  | "lightspeed" | "shopify-pos"
-  | "generic"
+  | 'mobilepos'
+  | 'verifone-commander'
+  | 'verifone-ruby'
+  | 'ncr-aloha'
+  | 'ncr-counterpoint'
+  | 'ncr-voyix'
+  | 'gilbarco-passport'
+  | 'gilbarco-flexpay'
+  | 'wayne-fusion'
+  | 'oracle-simphony'
+  | 'clover'
+  | 'square'
+  | 'toast'
+  | 'lightspeed'
+  | 'shopify-pos'
+  | 'generic'
   | `custom-${string}`;
 
 export interface ArosPOSConfig {
@@ -117,7 +124,7 @@ export interface DiscountData {
   itemId?: string;
   discountType?: string;
   amount?: number;
-  scope?: "item" | "transaction";
+  scope?: 'item' | 'transaction';
   [key: string]: unknown;
 }
 
@@ -196,13 +203,18 @@ export interface PosAnalytics {
 export interface ArosPOS {
   // ── Device Management ──
   /** Register this device with the AROS platform */
-  register(info?: { model?: string; firmware?: string; protocolVersion?: string; capabilities?: string[] }): Promise<{ ok: boolean; message: string }>;
+  register(info?: {
+    model?: string;
+    firmware?: string;
+    protocolVersion?: string;
+    capabilities?: string[];
+  }): Promise<{ ok: boolean; message: string }>;
 
   // ── Event Emission (fire-and-forget, queues offline) ──
   /** Item scanned / added to cart */
   itemScanned(item: ItemData): void;
   /** Item quantity changed */
-  quantityChanged(item: ItemData & { direction: "PLUS" | "MINUS"; newQuantity: number }): void;
+  quantityChanged(item: ItemData & { direction: 'PLUS' | 'MINUS'; newQuantity: number }): void;
   /** Transaction completed (sale) */
   transactionComplete(txn: TransactionData): void;
   /** Void a line item or entire transaction */
@@ -223,7 +235,10 @@ export interface ArosPOS {
   /** Send any custom event */
   sendEvent(eventType: string, data: Record<string, unknown>): void;
   /** Send a batch of completed basket items (teaches co-purchase associations) */
-  learnBasket(items: ItemData[], customerId?: string): Promise<{ ok: boolean; associationsCreated: number }>;
+  learnBasket(
+    items: ItemData[],
+    customerId?: string,
+  ): Promise<{ ok: boolean; associationsCreated: number }>;
 
   // ── AI Intelligence (async, requires network) ──
   /** Get upsell/cross-sell recommendations for an item */
@@ -268,12 +283,15 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
   } = config;
 
   // Use provided fetch or global
-  const _fetch = config.fetchFn || (typeof globalThis.fetch === "function" ? globalThis.fetch : null);
+  const _fetch =
+    config.fetchFn || (typeof globalThis.fetch === 'function' ? globalThis.fetch : null);
   if (!_fetch) {
-    throw new Error("@aros/pos-sdk: No fetch available. Pass fetchFn in config for React Native or older Node.js.");
+    throw new Error(
+      '@aros/pos-sdk: No fetch available. Pass fetchFn in config for React Native or older Node.js.',
+    );
   }
 
-  const baseUrl = endpoint.replace(/\/$/, "");
+  const baseUrl = endpoint.replace(/\/$/, '');
   let _queue: ConnexusEvent[] = [];
   let _flushTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -281,24 +299,24 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
 
   function headers(): Record<string, string> {
     const h: Record<string, string> = {
-      "Content-Type": "application/json",
-      "X-Tenant-Id": tenantId,
-      "X-Device-Id": deviceId,
-      "X-POS-Vendor": vendor,
+      'Content-Type': 'application/json',
+      'X-Tenant-Id': tenantId,
+      'X-Device-Id': deviceId,
+      'X-POS-Vendor': vendor,
     };
-    if (apiKey) h["Authorization"] = `Bearer ${apiKey}`;
+    if (apiKey) h['Authorization'] = `Bearer ${apiKey}`;
     return h;
   }
 
   async function post<T = unknown>(path: string, body: unknown): Promise<T> {
     const res = await _fetch!(`${baseUrl}${path}`, {
-      method: "POST",
+      method: 'POST',
       headers: headers(),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
+      const text = await res.text().catch(() => '');
       throw new Error(`AROS API ${res.status}: ${text}`);
     }
     return res.json() as Promise<T>;
@@ -306,12 +324,12 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
 
   async function get<T = unknown>(path: string): Promise<T> {
     const res = await _fetch!(`${baseUrl}${path}`, {
-      method: "GET",
+      method: 'GET',
       headers: headers(),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
+      const text = await res.text().catch(() => '');
       throw new Error(`AROS API ${res.status}: ${text}`);
     }
     return res.json() as Promise<T>;
@@ -322,7 +340,7 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
   function enqueue(event: ConnexusEvent): void {
     if (!offlineQueue) {
       // Fire and forget — send immediately, ignore errors
-      post("/v1/connexus/ingest", event).catch((err) => {
+      post('/v1/connexus/ingest', event).catch((err) => {
         onError?.(err, event);
       });
       return;
@@ -341,7 +359,7 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
     _queue = [];
 
     try {
-      await post("/v1/connexus/ingest", { events: batch });
+      await post('/v1/connexus/ingest', { events: batch });
       onFlush?.(batch.length, true);
       return { sent: batch.length, failed: 0 };
     } catch (err) {
@@ -370,31 +388,33 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
   const sdk: ArosPOS = {
     // Device
     async register(info = {}) {
-      return post("/v1/connexus/register", {
+      return post('/v1/connexus/register', {
         deviceId,
         tenantId,
         vendor,
         model: info.model,
         firmware: info.firmware,
-        protocolVersion: info.protocolVersion || "1.0",
+        protocolVersion: info.protocolVersion || '1.0',
         capabilities: info.capabilities,
       });
     },
 
     // Events
     itemScanned(item) {
-      enqueue(makeEvent("ItemSale", item));
+      enqueue(makeEvent('ItemSale', item));
     },
 
     quantityChanged(item) {
-      enqueue(makeEvent("item_sale", {
-        ...item,
-        event: "qty_change",
-      }));
+      enqueue(
+        makeEvent('item_sale', {
+          ...item,
+          event: 'qty_change',
+        }),
+      );
     },
 
     transactionComplete(txn) {
-      enqueue(makeEvent("TransactionComplete", txn));
+      enqueue(makeEvent('TransactionComplete', txn));
       // Auto-learn basket associations if items provided
       if (txn.items && txn.items.length >= 2) {
         sdk.learnBasket(txn.items).catch(() => {});
@@ -402,35 +422,35 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
     },
 
     voidLine(data) {
-      enqueue(makeEvent("VoidLine", { ...data, lineItem: true }));
+      enqueue(makeEvent('VoidLine', { ...data, lineItem: true }));
     },
 
     voidTransaction(data) {
-      enqueue(makeEvent("VoidTransaction", data));
+      enqueue(makeEvent('VoidTransaction', data));
     },
 
     returnItem(data) {
-      enqueue(makeEvent("Return", data));
+      enqueue(makeEvent('Return', data));
     },
 
     discountApplied(data) {
-      enqueue(makeEvent("Discount", data));
+      enqueue(makeEvent('Discount', data));
     },
 
     priceOverride(data) {
-      enqueue(makeEvent("PriceOverride", data));
+      enqueue(makeEvent('PriceOverride', data));
     },
 
     noSale(data = {}) {
-      enqueue(makeEvent("NoSale", data));
+      enqueue(makeEvent('NoSale', data));
     },
 
     customerIdentified(data) {
-      enqueue(makeEvent("LoyaltySwipe", data));
+      enqueue(makeEvent('LoyaltySwipe', data));
     },
 
     fuelDispensed(data) {
-      enqueue(makeEvent("FuelDispense", data));
+      enqueue(makeEvent('FuelDispense', data));
     },
 
     sendEvent(eventType, data) {
@@ -438,11 +458,11 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
     },
 
     async learnBasket(items, customerId) {
-      return post("/v1/connexus/ingest/learn", {
+      return post('/v1/connexus/ingest/learn', {
         items: items.map((i) => ({
-          itemId: i.itemId || i.barcode || "",
-          description: i.description || "",
-          department: i.department || "",
+          itemId: i.itemId || i.barcode || '',
+          description: i.description || '',
+          department: i.department || '',
           price: i.price || 0,
         })),
         customerId,
@@ -452,7 +472,7 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
 
     // Intelligence
     async getRecommendations(itemId, limit = 5) {
-      const res = await post<{ recommendations: Recommendation[] }>("/v1/pos/recommend", {
+      const res = await post<{ recommendations: Recommendation[] }>('/v1/pos/recommend', {
         itemId,
         tenantId,
         limit,
@@ -461,7 +481,7 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
     },
 
     async getQuickOrder(customerId, limit = 10) {
-      const res = await post<{ items: QuickOrderItem[] }>("/v1/pos/quick-order", {
+      const res = await post<{ items: QuickOrderItem[] }>('/v1/pos/quick-order', {
         customerId,
         tenantId,
         limit,
@@ -471,7 +491,7 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
 
     async getMessages() {
       const res = await get<{ messages: CashierMessage[] }>(
-        `/v1/pos/messages/${deviceId}?tenantId=${tenantId}`
+        `/v1/pos/messages/${deviceId}?tenantId=${tenantId}`,
       );
       return res.messages || [];
     },
@@ -481,9 +501,7 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
     },
 
     async getAnalytics(minutes = 60) {
-      return get<PosAnalytics>(
-        `/v1/pos/analytics?tenantId=${tenantId}&minutes=${minutes}`
-      );
+      return get<PosAnalytics>(`/v1/pos/analytics?tenantId=${tenantId}&minutes=${minutes}`);
     },
 
     // Queue
@@ -495,7 +513,9 @@ export function createArosPOS(config: ArosPOSConfig): ArosPOS {
 
     startAutoFlush() {
       if (_flushTimer) return;
-      _flushTimer = setInterval(() => { flush().catch(() => {}); }, flushIntervalMs);
+      _flushTimer = setInterval(() => {
+        flush().catch(() => {});
+      }, flushIntervalMs);
     },
 
     stopAutoFlush() {
