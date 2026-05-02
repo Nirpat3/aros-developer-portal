@@ -454,4 +454,5 @@ class SDKImpl {
 export const ShreAI = new SDKImpl();
 
 // Also export the class for tests / multi-instance setups.
+export { SDKImpl };
 export { SDKImpl as ShreAIClient };
