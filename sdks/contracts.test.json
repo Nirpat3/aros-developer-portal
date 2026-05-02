@@ -1,0 +1,841 @@
+{
+  "metadata": {
+    "version": "2.0.0",
+    "date": "2026-05-02",
+    "description": "Shre SDK API Contract Specification — Locked endpoints for all platforms (iOS, Android, Web, Python, .NET)",
+    "locked": true,
+    "lockedDate": "2026-05-02",
+    "breakingChangePolicy": "6-month deprecation window before removal"
+  },
+  "endpoints": [
+    {
+      "id": "POST /v1/events/batch",
+      "path": "/v1/events/batch",
+      "method": "POST",
+      "description": "Send batch of events for learning/analytics",
+      "requiredHeaders": [
+        "x-shre-tenant",
+        "x-shre-app",
+        "Content-Type"
+      ],
+      "optionalHeaders": [
+        "Authorization"
+      ],
+      "requestBody": {
+        "type": "object",
+        "required": ["events"],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["eventId", "eventName"],
+              "properties": {
+                "eventId": {
+                  "type": "string",
+                  "description": "Unique UUID for idempotency"
+                },
+                "eventName": {
+                  "type": "string",
+                  "description": "Event type (e.g. 'app_launch', 'screen_viewed')"
+                },
+                "entityType": {
+                  "type": "string",
+                  "description": "Optional entity type (e.g. 'screen', 'transaction')"
+                },
+                "entityId": {
+                  "type": "string",
+                  "description": "Optional entity identifier (e.g. UPC, transaction ID)"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "description": "ISO 8601 timestamp (default: now)"
+                },
+                "metadata": {
+                  "type": "object",
+                  "description": "Optional contextual data"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Events accepted",
+          "schema": {
+            "type": "object",
+            "required": ["accepted", "rejected", "trackingEnabled", "nextFlushSeconds"],
+            "properties": {
+              "accepted": {
+                "type": "integer",
+                "description": "Number of events accepted"
+              },
+              "rejected": {
+                "type": "integer",
+                "description": "Number of events rejected"
+              },
+              "trackingEnabled": {
+                "type": "boolean",
+                "description": "Is tracking enabled (kill switch)"
+              },
+              "nextFlushSeconds": {
+                "type": "integer",
+                "description": "Recommended flush interval in seconds"
+              },
+              "sinkReason": {
+                "type": "string",
+                "description": "Optional reason code for rejections"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Bad request (invalid headers or body)",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized (invalid token)"
+        },
+        "403": {
+          "description": "Forbidden (tracking disabled)"
+        },
+        "429": {
+          "description": "Rate limited"
+        },
+        "500": {
+          "description": "Server error"
+        }
+      },
+      "testCases": [
+        {
+          "name": "accept_single_event_with_headers",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "events": [
+                {
+                  "eventId": "uuid-1",
+                  "eventName": "app_launch",
+                  "entityType": "app",
+                  "metadata": {
+                    "version": "1.0.0"
+                  }
+                }
+              ]
+            }
+          },
+          "expectedStatus": 200,
+          "expectedResponse": {
+            "accepted": 1,
+            "rejected": 0,
+            "trackingEnabled": true,
+            "nextFlushSeconds": 10
+          }
+        },
+        {
+          "name": "accept_multiple_events",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "events": [
+                {
+                  "eventId": "uuid-1",
+                  "eventName": "screen_viewed",
+                  "entityType": "screen",
+                  "entityId": "home"
+                },
+                {
+                  "eventId": "uuid-2",
+                  "eventName": "item_scanned",
+                  "entityType": "item",
+                  "entityId": "upc-001"
+                },
+                {
+                  "eventId": "uuid-3",
+                  "eventName": "transaction",
+                  "entityType": "transaction",
+                  "entityId": "txn-001",
+                  "metadata": {
+                    "total": 99.99
+                  }
+                }
+              ]
+            }
+          },
+          "expectedStatus": 200,
+          "expectedFieldPresence": [
+            "accepted",
+            "rejected",
+            "trackingEnabled"
+          ]
+        },
+        {
+          "name": "reject_missing_x_shre_tenant",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "events": [
+                {
+                  "eventId": "uuid-1",
+                  "eventName": "test"
+                }
+              ]
+            }
+          },
+          "expectedStatus": 400,
+          "expectedFieldPresence": ["error"]
+        },
+        {
+          "name": "reject_missing_x_shre_app",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant"
+            },
+            "body": {
+              "events": [
+                {
+                  "eventId": "uuid-1",
+                  "eventName": "test"
+                }
+              ]
+            }
+          },
+          "expectedStatus": 400,
+          "expectedFieldPresence": ["error"]
+        },
+        {
+          "name": "reject_malformed_json",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": "not valid json"
+          },
+          "expectedStatus": 400,
+          "expectedFieldPresence": ["error"]
+        },
+        {
+          "name": "handle_empty_metadata",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "events": [
+                {
+                  "eventId": "uuid-1",
+                  "eventName": "test_event",
+                  "entityType": "test"
+                }
+              ]
+            }
+          },
+          "expectedStatus": 200
+        }
+      ]
+    },
+    {
+      "id": "POST /v1/sdk/session",
+      "path": "/v1/sdk/session",
+      "method": "POST",
+      "description": "Mint session token for authenticated mode",
+      "requiredHeaders": [
+        "x-shre-tenant",
+        "Content-Type"
+      ],
+      "requestBody": {
+        "type": "object",
+        "required": ["tenantId", "app", "mode"],
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "storeId": {
+            "type": "string",
+            "description": "Optional store/location ID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Optional user ID"
+          },
+          "role": {
+            "type": "string",
+            "description": "Optional user role"
+          },
+          "app": {
+            "type": "string",
+            "enum": ["rapid_pos", "rapid_bos"],
+            "description": "Application identifier"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["read_only", "read_write"],
+            "description": "SDK mode"
+          },
+          "bootstrapKey": {
+            "type": "string",
+            "description": "Required for read_write mode"
+          },
+          "sdkVersion": {
+            "type": "string",
+            "description": "SDK version"
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Session created",
+          "schema": {
+            "type": "object",
+            "required": ["sdkToken", "sessionId", "trackingEnabled"],
+            "properties": {
+              "sdkToken": {
+                "type": ["string", "null"],
+                "description": "JWT token for authenticated mode (null for read_only)"
+              },
+              "sessionId": {
+                "type": "string",
+                "description": "Session ID"
+              },
+              "trackingEnabled": {
+                "type": "boolean",
+                "description": "Is tracking enabled"
+              },
+              "mode": {
+                "type": "string",
+                "enum": ["read_only", "read_write"],
+                "description": "Confirmed mode"
+              },
+              "expiresIn": {
+                "type": "integer",
+                "description": "Token TTL in seconds"
+              },
+              "flushIntervalSeconds": {
+                "type": "integer",
+                "description": "Optional flush interval override"
+              },
+              "batchSize": {
+                "type": "integer",
+                "description": "Optional batch size override"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Bad request"
+        },
+        "401": {
+          "description": "Invalid bootstrap key"
+        },
+        "500": {
+          "description": "Server error"
+        }
+      },
+      "testCases": [
+        {
+          "name": "mint_token_read_write",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "mode": "read_write",
+              "bootstrapKey": "valid-key"
+            }
+          },
+          "expectedStatus": 200,
+          "expectedFieldPresence": [
+            "sdkToken",
+            "sessionId",
+            "trackingEnabled",
+            "expiresIn"
+          ]
+        },
+        {
+          "name": "session_read_only_no_token",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "mode": "read_only"
+            }
+          },
+          "expectedStatus": 200,
+          "expectedResponse": {
+            "sdkToken": null
+          }
+        },
+        {
+          "name": "reject_missing_x_shre_tenant",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "mode": "read_only"
+            }
+          },
+          "expectedStatus": 400
+        },
+        {
+          "name": "reject_invalid_bootstrap_key",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "mode": "read_write",
+              "bootstrapKey": "invalid-key"
+            }
+          },
+          "expectedStatus": 401
+        },
+        {
+          "name": "enforce_application_json_response",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "mode": "read_only"
+            }
+          },
+          "expectedStatus": 200,
+          "expectedContentType": "application/json"
+        }
+      ]
+    },
+    {
+      "id": "GET /v1/sdk/config",
+      "path": "/v1/sdk/config",
+      "method": "GET",
+      "description": "Fetch SDK configuration (kill switch, disabled events, batch settings)",
+      "requiredHeaders": [
+        "x-shre-tenant"
+      ],
+      "responses": {
+        "200": {
+          "description": "Configuration returned",
+          "schema": {
+            "type": "object",
+            "required": [
+              "trackingEnabled",
+              "disabledEvents",
+              "piiMasking",
+              "maxQueueSize",
+              "flushIntervalSeconds",
+              "batchSize"
+            ],
+            "properties": {
+              "trackingEnabled": {
+                "type": "boolean",
+                "description": "Kill switch for all tracking"
+              },
+              "disabledEvents": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Event names to filter client-side"
+              },
+              "piiMasking": {
+                "type": "boolean",
+                "description": "Should SDK mask PII"
+              },
+              "maxQueueSize": {
+                "type": "integer",
+                "description": "Max events in local queue"
+              },
+              "flushIntervalSeconds": {
+                "type": "integer",
+                "description": "Auto-flush interval"
+              },
+              "batchSize": {
+                "type": "integer",
+                "description": "Events per batch"
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Bad request (missing x-shre-tenant)"
+        },
+        "500": {
+          "description": "Server error"
+        }
+      },
+      "testCases": [
+        {
+          "name": "return_config_with_headers",
+          "request": {
+            "method": "GET",
+            "headers": {
+              "x-shre-tenant": "test-tenant"
+            }
+          },
+          "expectedStatus": 200,
+          "expectedFieldPresence": [
+            "trackingEnabled",
+            "disabledEvents",
+            "piiMasking",
+            "maxQueueSize",
+            "flushIntervalSeconds",
+            "batchSize"
+          ]
+        },
+        {
+          "name": "reject_missing_x_shre_tenant",
+          "request": {
+            "method": "GET",
+            "headers": {}
+          },
+          "expectedStatus": 400
+        },
+        {
+          "name": "config_types_valid",
+          "request": {
+            "method": "GET",
+            "headers": {
+              "x-shre-tenant": "test-tenant"
+            }
+          },
+          "expectedStatus": 200,
+          "expectedTypes": {
+            "trackingEnabled": "boolean",
+            "disabledEvents": "array",
+            "piiMasking": "boolean",
+            "maxQueueSize": "number",
+            "flushIntervalSeconds": "number",
+            "batchSize": "number"
+          }
+        },
+        {
+          "name": "handle_kill_switch",
+          "request": {
+            "method": "GET",
+            "headers": {
+              "x-shre-tenant": "test-tenant"
+            }
+          },
+          "expectedStatus": 200,
+          "expectedResponse": {
+            "trackingEnabled": false
+          }
+        },
+        {
+          "name": "handle_disabled_events_list",
+          "request": {
+            "method": "GET",
+            "headers": {
+              "x-shre-tenant": "test-tenant"
+            }
+          },
+          "expectedStatus": 200,
+          "checkResponse": "disabledEvents should be a non-empty array"
+        }
+      ]
+    },
+    {
+      "id": "POST /v1/sdk/heartbeat",
+      "path": "/v1/sdk/heartbeat",
+      "method": "POST",
+      "description": "Send device/app liveness signal",
+      "requiredHeaders": [
+        "x-shre-tenant",
+        "x-shre-app",
+        "Content-Type"
+      ],
+      "requestBody": {
+        "type": "object",
+        "required": ["tenantId", "app"],
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID"
+          },
+          "storeId": {
+            "type": "string",
+            "description": "Optional store ID"
+          },
+          "app": {
+            "type": "string",
+            "description": "Application name"
+          },
+          "sdkVersion": {
+            "type": "string",
+            "description": "SDK version"
+          },
+          "deviceId": {
+            "type": "string",
+            "description": "Optional device identifier"
+          },
+          "eventsQueued": {
+            "type": "integer",
+            "description": "Number of events in queue"
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Heartbeat acknowledged"
+        },
+        "400": {
+          "description": "Bad request"
+        },
+        "500": {
+          "description": "Server error"
+        }
+      },
+      "testCases": [
+        {
+          "name": "send_heartbeat",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "sdkVersion": "2.0.0",
+              "eventsQueued": 5
+            }
+          },
+          "expectedStatus": 200
+        },
+        {
+          "name": "include_tenant_in_body",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "merchant-999",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "tenantId": "merchant-999",
+              "app": "rapid_pos",
+              "eventsQueued": 0
+            }
+          },
+          "expectedStatus": 200,
+          "checkRequest": "tenantId in body must match x-shre-tenant header"
+        },
+        {
+          "name": "include_app_in_body",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_bos"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_bos",
+              "eventsQueued": 2
+            }
+          },
+          "expectedStatus": 200,
+          "checkRequest": "app in body must match x-shre-app header"
+        },
+        {
+          "name": "send_with_device_id",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "deviceId": "device-abc-123",
+              "eventsQueued": 0
+            }
+          },
+          "expectedStatus": 200
+        },
+        {
+          "name": "handle_network_failure_gracefully",
+          "request": {
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-shre-tenant": "test-tenant",
+              "x-shre-app": "rapid_pos"
+            },
+            "body": {
+              "tenantId": "test-tenant",
+              "app": "rapid_pos",
+              "eventsQueued": 0
+            }
+          },
+          "expectedStatus": 200,
+          "checkBehavior": "SDK should not block on heartbeat failure"
+        }
+      ]
+    }
+  ],
+  "testCoverageMatrix": {
+    "javascript": {
+      "framework": "Vitest",
+      "file": "aros-developer-portal/sdks/javascript/v2/__tests__/ShreSDK.test.ts",
+      "testCount": "40+",
+      "coverage": [
+        "All required headers",
+        "All HTTP methods",
+        "All response schemas",
+        "All error status codes (400, 401, 403, 429, 500)",
+        "Network failures",
+        "Malformed responses",
+        "Serialization/deserialization"
+      ]
+    },
+    "ios": {
+      "framework": "XCTest",
+      "file": "shre-router/src/routes/__tests__/sdk.test.ts",
+      "testCount": "40+",
+      "coverage": [
+        "All required headers",
+        "All HTTP methods",
+        "All response schemas",
+        "All error status codes"
+      ]
+    },
+    "android": {
+      "framework": "JUnit",
+      "file": "aros-developer-portal/sdks/kotlin/src/test/kotlin/",
+      "testCount": "40+",
+      "coverage": [
+        "All required headers",
+        "All HTTP methods",
+        "All response schemas"
+      ]
+    },
+    "python": {
+      "framework": "pytest",
+      "file": "aros-developer-portal/sdks/python/tests/test_sdk.py",
+      "testCount": "40+",
+      "coverage": [
+        "All required headers",
+        "All HTTP methods",
+        "All response schemas"
+      ]
+    },
+    "dotnet": {
+      "framework": "NUnit/xUnit",
+      "file": "aros-developer-portal/sdks/dotnet/ShreAI.Tests/",
+      "testCount": "40+",
+      "coverage": [
+        "All required headers",
+        "All HTTP methods",
+        "All response schemas"
+      ]
+    }
+  },
+  "breakingChangeProtocol": {
+    "step1": "New behavior → add NEW endpoint (`/v2/...`) alongside old",
+    "step2": "Keep old endpoint working for 6 months",
+    "step3": "Update SDK integration guides with migration path",
+    "step4": "Announce in changelog: 'old endpoint deprecated DATE, removed DATE+6mo'",
+    "step5": "After 6 months: remove old endpoint + delete tests"
+  },
+  "validationRules": {
+    "headers": {
+      "x_shre_tenant": {
+        "required": true,
+        "description": "Identifies tenant/merchant",
+        "enforcedOn": ["POST /v1/events/batch", "GET /v1/sdk/config", "POST /v1/sdk/heartbeat", "POST /v1/sdk/session"]
+      },
+      "x_shre_app": {
+        "required": true,
+        "description": "Identifies app (rapid_pos, rapid_bos)",
+        "enforcedOn": ["POST /v1/events/batch", "POST /v1/sdk/heartbeat"]
+      },
+      "Content_Type": {
+        "required": true,
+        "value": "application/json",
+        "enforcedOn": ["POST /v1/events/batch", "POST /v1/sdk/session", "POST /v1/sdk/heartbeat"]
+      },
+      "Authorization": {
+        "required": false,
+        "description": "Bearer token for read_write mode",
+        "format": "Bearer <jwt_token>"
+      }
+    },
+    "responseCodes": {
+      "200": "Success",
+      "400": "Bad request (missing/invalid headers, malformed JSON)",
+      "401": "Unauthorized (invalid token/bootstrap key)",
+      "403": "Forbidden (tracking disabled)",
+      "429": "Rate limited",
+      "500": "Server error"
+    },
+    "eventIdempotency": {
+      "required": true,
+      "description": "Each event must have unique eventId for retry safety",
+      "format": "UUID v4",
+      "enforcedOn": ["POST /v1/events/batch"]
+    },
+    "contentType": {
+      "required": true,
+      "enforceJsonOnly": true,
+      "description": "Never return HTML on error"
+    }
+  }
+}
