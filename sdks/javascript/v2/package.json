@@ -1,0 +1,19 @@
+{
+  "name": "@shreai/sdk",
+  "version": "2.0.0",
+  "description": "Shre AI POS/BOS event SDK — read-only learning capture by default, opt-in read/write for trusted writers.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "keywords": ["shreai", "pos", "bos", "rapid-pos", "rapid-bos", "events", "sdk"],
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
