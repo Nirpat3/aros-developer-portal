@@ -14,7 +14,7 @@ npm install @shreai/sdk
 import { ShreAI } from "@shreai/sdk";
 
 ShreAI.init({
-  endpoint:        "https://api.shre.ai",     // auth/config plane (Mac)
+  endpoint:        "https://apiauth.shre.ai", // auth/config plane (Mac)  — NOT api.shre.ai (that's docs)
   eventsEndpoint:  "https://events.shre.ai",  // hot data plane (Hostinger). Optional — falls back to endpoint.
   tenantId:        "merchant_123",
   storeId:         "store_001",
@@ -42,11 +42,12 @@ ShreAI.trackEvent("price_updated", {
 
 ```ts
 ShreAI.init({
-  endpoint:     "https://api.shre.ai",
-  tenantId:     "merchant_123",
-  app:          "rapid_bos",
-  mode:         "read_write",
-  bootstrapKey: "<your_public_sdk_key>"   // request from Shre AI ops
+  endpoint:       "https://apiauth.shre.ai",
+  eventsEndpoint: "https://events.shre.ai",
+  tenantId:       "merchant_123",
+  app:            "rapid_bos",
+  mode:           "read_write",
+  bootstrapKey:   "<your_public_sdk_key>"   // request from Shre AI ops
 });
 ```
 
@@ -71,7 +72,8 @@ POST  https://events.shre.ai/v1/events/batch                ← Hostinger relay 
 Hostinger VPS (shre-event-relay) → Supabase (sdk_events) → Shre brain learning loop
 
 
-/v1/sdk/session and /v1/sdk/config still go to https://api.shre.ai (Mac plane).
+/v1/sdk/session and /v1/sdk/config go to https://apiauth.shre.ai (Mac plane).
+NOTE: api.shre.ai now serves API documentation only — do not configure the SDK against it.
 ```
 
 ## Endpoints used
@@ -123,7 +125,7 @@ Tested on Chrome / Safari / Firefox latest. Uses `navigator.sendBeacon` on `befo
 
 ## Notes for partners
 
-- Endpoint must be **`https://api.shre.ai`** (or your dedicated `https://*.shre.ai` partner host). The SDK refuses to initialize if the hostname starts with `downloads.` — that host serves SDK downloads only and will return Cloudflare error 1033.
+- Control plane endpoint must be **`https://apiauth.shre.ai`** and data plane **`https://events.shre.ai`** (or your dedicated `https://*.shre.ai` partner hosts). `api.shre.ai` serves API documentation only — pointing the SDK there returns 404. The SDK refuses to initialize if the hostname starts with `downloads.` — that host serves SDK package downloads only and will return Cloudflare error 1033.
 - Bootstrap keys are tenant-scoped, hashed at rest in Supabase, and rotated by Shre AI ops. Treat them as public-on-client (they identify your install, not the user) but do not embed admin/service-role keys.
 - Heartbeat is optional but recommended for support — it tells our health dashboard your SDK installs are alive even on quiet days.
 

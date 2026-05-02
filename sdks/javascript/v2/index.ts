@@ -6,7 +6,8 @@
  *   import { ShreAI } from "@shreai/sdk";
  *
  *   ShreAI.init({
- *     endpoint: "https://api.shre.ai",
+ *     endpoint:       "https://apiauth.shre.ai",     // control plane (session/config)
+ *     eventsEndpoint: "https://events.shre.ai",      // data plane (events/heartbeat)
  *     tenantId: "merchant_123",
  *     storeId:  "store_001",
  *     userId:   "user_789",
@@ -40,10 +41,11 @@ export type Mode = 'read_only' | 'read_write';
 export type App = 'rapid_pos' | 'rapid_bos' | string;
 
 export interface InitConfig {
-  /** Auth + config plane (e.g. https://api.shre.ai). Used for /v1/sdk/session and /v1/sdk/config. */
+  /** Auth + config plane (e.g. https://apiauth.shre.ai). Used for /v1/sdk/session and /v1/sdk/config. */
   endpoint: string;
   /** Optional dedicated data plane (e.g. https://events.shre.ai). Used for /v1/events/batch and /v1/sdk/heartbeat.
-   *  If omitted, falls back to `endpoint`. */
+   *  If omitted, falls back to `endpoint`. Note: api.shre.ai serves API documentation, not the SDK control
+   *  plane — pointing endpoint at api.shre.ai will return 404. */
   eventsEndpoint?: string;
   tenantId: string;
   storeId?: string;
