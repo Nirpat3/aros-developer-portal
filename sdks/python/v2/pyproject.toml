@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shreai"
+version = "2.0.0"
+description = "Shre AI SDK v2 — single-file, stdlib-only event capture for POS/BOS partners."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Shre AI" }]
+keywords = ["shreai", "pos", "bos", "events", "sdk"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://developers.shre.ai"
+Source = "https://github.com/Shreai/sdk-python"
+
+[tool.setuptools]
+py-modules = ["shreai"]
