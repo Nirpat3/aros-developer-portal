@@ -24,7 +24,7 @@ npm run dev         # Vite dev server on :5442
 ## Deployment
 - LaunchAgent: `~/Library/LaunchAgents/ai.shre.developer-portal.plist`
 - Launcher: `~/.local/bin/aros-developer-portal.sh`
-- Domain: `developers.nirtek.net` (via Cloudflare tunnel -> shre-auth-gate -> :5442)
+- Domain: `developers.shre.ai` (via Cloudflare tunnel -> shre-auth-gate -> :5442)
 - Logs: `/tmp/aros-developer-portal.log`
 
 ## Standards
