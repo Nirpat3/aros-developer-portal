@@ -8,6 +8,10 @@ let package = Package(
         .library(name: "ShreAI", targets: ["ShreAI"])
     ],
     targets: [
-        .target(name: "ShreAI", path: "Sources/ShreAI")
+        .target(
+            name: "ShreAI",
+            path: "Sources/ShreAI",
+            resources: [.copy("PrivacyInfo.xcprivacy")]
+        )
     ]
 )

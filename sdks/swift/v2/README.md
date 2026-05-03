@@ -2,6 +2,10 @@
 
 **Production Ready — API Contract Locked**
 
+> **Standalone repo for SPM install:** https://github.com/Shreai/sdk-swift
+> Add via Xcode → File → Add Package Dependencies → `https://github.com/Shreai/sdk-swift.git`
+> This directory remains the canonical source; the standalone repo is mirrored from here.
+
 ---
 
 ## Quick Start
